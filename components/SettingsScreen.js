@@ -16,9 +16,9 @@ import * as ImagePicker from 'react-native-image-picker'; // Нужно уста
 
 const SettingsScreen = ({ visible, onClose, userData, onLogout, onUpdateUser }) => {
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(userData.name);
-  const [email, setEmail] = useState(userData.email);
-  const [avatarUri, setAvatarUri] = useState(userData.avatarUri);
+  const [name, setName] = useState(userData?.name || '');
+  const [email, setEmail] = useState(userData?.email || '');
+  const [avatarUri, setAvatarUri] = useState(userData?.avatarUri || '');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {

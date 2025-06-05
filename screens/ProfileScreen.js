@@ -22,84 +22,118 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from '../config/config'; 
 import theme from '../utils/style';
 import LinearGradient from 'react-native-linear-gradient';
+import AddCollectionModal from '../components/AddCollectionModal';
 
+
+
+// const fetchUserData = async () => {
+//   return {
+//     name: 'Иван Петрович Иванов',  
+//     avatarUri: '',                  
+//   };
+// };
 
 const fetchUserData = async () => {
-  return {
-    name: 'Иван Петрович Иванов',  
-    avatarUri: '',                  
-  };
+  try {
+    const token = await AsyncStorage.getItem('jwt_token'); 
+    if (!token) {
+      throw new Error('No auth token found');
+    }
+
+    const response = await fetch(`${BASE_URL}/user/info`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ошибка при получении данных: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    return {
+      name: data.name,
+      avatarUri: data.avatar 
+    };
+  } catch (error) {
+    console.error('Ошибка загрузки данных пользователя:', error);
+  }
+};
+
+const fetchUserCollections = async () => {
+  const token = await AsyncStorage.getItem('jwt_token');
+  if (!token) throw new Error('Пользователь не авторизован');
+
+  const collectionsResp = await axios.get(`${BASE_URL}/collections`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const collections = collectionsResp.data;
+
+  const allGameIds = Array.from(
+    new Set(collections.flatMap((col) => col.game_ids))
+  );
+
+  let gamesMap = {};
+  if (allGameIds.length > 0) {
+    const gamesResp = await axios.post(
+      `${BASE_URL}/games/by-ids`,
+      { ids: allGameIds },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    gamesMap = Object.fromEntries(
+      gamesResp.data.map((game) => [game.id, game])
+    );
+  }
+
+  return collections.map((col) => ({
+    id: col.id.toString(),
+    title: col.name,
+    pinned: col.pinned,
+    games: col.game_ids.map((id) => ({
+      id: id.toString(),
+      title: gamesMap[id]?.title || '???',
+      boxImageUri: gamesMap[id]?.image || '',
+    })),
+  }));
 };
 
 // const fetchUserCollections = async () => {
-//   const token = await AsyncStorage.getItem('jwt_token');
-//   if (!token) throw new Error('Пользователь не авторизован');
-
-//   const collectionsResp = await axios.get(`${BASE_URL}/collections`, {
-//     headers: { Authorization: `Bearer ${token}` },
-//   });
-
-//   const collections = collectionsResp.data;
-
-//   const allGameIds = Array.from(
-//     new Set(collections.flatMap((col) => col.game_ids))
-//   );
-
-//   let gamesMap = {};
-//   if (allGameIds.length > 0) {
-//     const gamesResp = await axios.post(
-//       `${BASE_URL}/games/by-ids`,
-//       { ids: allGameIds },
-//       {
-//         headers: { Authorization: `Bearer ${token}` },
-//       }
-//     );
-
-//     gamesMap = Object.fromEntries(
-//       gamesResp.data.map((game) => [game.id, game])
-//     );
-//   }
-
-//   return collections.map((col) => ({
-//     id: col.id.toString(),
-//     title: col.name,
-//     pinned: col.pinned,
-//     games: col.game_ids.map((id) => ({
-//       id: id.toString(),
-//       title: gamesMap[id]?.title || '???',
-//       boxImageUri: gamesMap[id]?.image || '',
-//     })),
-//   }));
+//   return [
+//     {
+//       id: 'col1',
+//       title: 'Для компании',
+//       pinned: true,
+//       games: [
+//         { id: 'g1', title: 'Каркассон', boxImageUri: '' },
+//         { id: 'g2', title: 'Колонизаторы', boxImageUri: '' },
+//         { id: 'g3', title: '7 чудес', boxImageUri: '' },
+//       ],
+//     },
+//     {
+//       id: 'col2',
+//       title: 'Для двоих',
+//       pinned: false,
+//       games: [
+//         { id: 'g4', title: 'Дуэль', boxImageUri: '' },
+//         { id: 'g5', title: 'Пэчворк', boxImageUri: '' },
+//       ],
+//     },
+//   ];
 // };
-
-const fetchUserCollections = async () => {
-  return [
-    {
-      id: 'col1',
-      title: 'Для компании',
-      pinned: true,
-      games: [
-        { id: 'g1', title: 'Каркассон', boxImageUri: '' },
-        { id: 'g2', title: 'Колонизаторы', boxImageUri: '' },
-        { id: 'g3', title: '7 чудес', boxImageUri: '' },
-      ],
-    },
-    {
-      id: 'col2',
-      title: 'Для двоих',
-      pinned: false,
-      games: [
-        { id: 'g4', title: 'Дуэль', boxImageUri: '' },
-        { id: 'g5', title: 'Пэчворк', boxImageUri: '' },
-      ],
-    },
-  ];
-};
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const ProfileScreen = () => {
   const [modalVisible, setModalVisible] = useState(false);
+  const [isAddModalVisible, setAddModalVisible] = useState(false);
+
 
   const handleLogout = () => {
     navigation.replace('Login');
@@ -125,11 +159,42 @@ const ProfileScreen = () => {
       } catch (e) {
         console.error('Ошибка при загрузке данных профиля:', e);
         Alert.alert('Ошибка', 'Не удалось загрузить данные. Попробуйте позже.');
+        navigation.navigate('Login');
       } finally {
         setLoading(false);
       }
     })();
   }, []);
+
+  const addCollection = async (title) => {
+    try {
+      const token = await AsyncStorage.getItem('jwt_token');
+      if (!token) throw new Error('Пользователь не авторизован');
+
+      const response = await axios.post(
+        `${BASE_URL}/collections`,
+        { name: title },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const newCol = response.data;
+
+      setCollections((prev) => [
+        ...prev,
+        {
+          id: newCol.id.toString(),
+          title: newCol.name,
+          pinned: newCol.pinned,
+          games: [], 
+        },
+      ]);
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Ошибка', 'Не удалось создать коллекцию');
+    }
+  };
 
   if (loading) {
     return (
@@ -166,7 +231,7 @@ const ProfileScreen = () => {
         />
 
         <View style={styles.avatarWrapper}>
-          {user.avatarUri ? (
+          {user?.avatarUri ? (
             <Image
               source={{ uri: user.avatarUri }}
               style={styles.avatarImage}
@@ -182,7 +247,7 @@ const ProfileScreen = () => {
         </View>
 
         <Text style={[styles.greetingText, {fontFamily: theme.fonts.main.italic}]} numberOfLines={2} ellipsizeMode="tail">
-          {`Привет, ${user.name}!`}
+         {`Привет, ${user?.name || 'друг'}!`}
         </Text>
       </LinearGradient>
 
@@ -191,9 +256,7 @@ const ProfileScreen = () => {
           <Text style={[styles.collectionsTitle, {fontFamily: theme.fonts.main.bold}]}>Мои коллекции</Text>
           <TouchableOpacity
             style={styles.addButton}
-            onPress={() => {
-              // navigation.navigate('CreateCollectionScreen');
-            }}
+            onPress={() => setAddModalVisible(true)}
           >
             <Image
               source={require('../assets/pic/add.png')}
@@ -201,6 +264,11 @@ const ProfileScreen = () => {
               resizeMode="contain"
             />
           </TouchableOpacity>
+          <AddCollectionModal
+            visible={isAddModalVisible}
+            onClose={() => setAddModalVisible(false)}
+            onCreate={addCollection}
+          />
         </View>
 
         {collections.length === 0 ? (
@@ -274,7 +342,7 @@ const ProfileScreen = () => {
         )}
       </View>
 
-      <BottomMenu current="Profile" onNavigate={navigation} />
+      <BottomMenu current="Profile"/>
     </SafeAreaView>
   );
 };

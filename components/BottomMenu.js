@@ -7,6 +7,7 @@ import {
   Dimensions,
 } from 'react-native';
 import theme from '../utils/style';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -14,14 +15,16 @@ const ACTIVE_COLOR = '#FF8C55';
 const INACTIVE_COLOR = '#333333'; 
 const BLUE_BUTTON_COLOR = theme.secondaryColors.blue; 
 
-const BottomMenu = ({ current, onNavigate }) => {
+const BottomMenu = ({ current }) => {
+  const navigation = useNavigation();
+
   return (
     <View style={styles.wrapper}>
       <View style={styles.bottomBar} />
 
       <TouchableOpacity
         style={[styles.iconButton, { left: SCREEN_WIDTH * 0.15 - ICON_SIZE / 2 }]}
-        onPress={() => onNavigate('Profile')}
+        onPress={() => navigation.navigate('Profile')}
         activeOpacity={0.7}
       >
         <Image
@@ -34,21 +37,25 @@ const BottomMenu = ({ current, onNavigate }) => {
         />
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.centralButton}
-        //onPress={() => onNavigate('Chat')}
-        activeOpacity={0.8}
-      >
-        <Image
-          source={require('../assets/pic/chat.png')}
-          style={styles.centralIcon}
-          resizeMode="contain"
-        />
-      </TouchableOpacity>
+      {current === 'Chat'?
+        ( <View/>
+        ) : (
+        <TouchableOpacity
+          style={styles.centralButton}
+          onPress={() => navigation.navigate('Chat')}
+          activeOpacity={0.8}
+        >
+          <Image
+            source={require('../assets/pic/chat.png')}
+            style={styles.centralIcon}
+            resizeMode="contain"
+          />
+        </TouchableOpacity> )
+      }
 
       <TouchableOpacity
         style={[styles.iconButton, { right: SCREEN_WIDTH * 0.15 - ICON_SIZE / 2 }]}
-        //onPress={() => onNavigate('sSearch')}
+        //onPress={() => navigation.navigate('Search')}
         activeOpacity={0.7}
       >
         <Image
@@ -120,5 +127,19 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     tintColor: '#FFF',
+  },
+  triangle: {
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderLeftWidth: 12,
+    borderRightWidth: 12,
+    borderBottomWidth: 20,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#FFF', 
+    alignSelf: 'center',
+    marginBottom: 8, 
   },
 });

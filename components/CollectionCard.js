@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import theme from '../utils/style';
 import Modal from 'react-native-modal';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from '../config/config'; 
@@ -31,6 +32,8 @@ const CollectionCard = ({ collection, onPinToggle, onEdit, onDelete }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(collection.title);
+
+  const navigation = useNavigation();
 
 
   const toggleMenu = () => {
@@ -97,27 +100,26 @@ const CollectionCard = ({ collection, onPinToggle, onEdit, onDelete }) => {
   const [gameDetails, setGameDetails] = useState([]);
 
   useEffect(() => {
-    // const fetchGames = async () => {
-    //   if (!collection.game_ids || collection.game_ids.length === 0) return;
-
-    //   const token = await AsyncStorage.getItem('jwt_token');
-    //   try {
-    //     const response = await axios.post(
-    //       `${BASE_URL}/games/by-ids`,
-    //       { ids: collection.game_ids },
-    //       { headers: { Authorization: `Bearer ${token}` } }
-    //     );
-    //     setGameDetails(response.data);
-    //   } catch (error) {
-    //     console.error('Ошибка при загрузке игр:', error);
-    //   }
-    // };
-
     const fetchGames = async () => {
-      return  [{ id: 'g1', title: 'Каркассон', boxImageUri: '', genre: "Семейные", age: "6+" },
-        { id: 'g2', title: 'Каркассон', boxImageUri: '', genre: "Семейные", age: "6+" },
-        { id: 'g3', title: 'Каркассон', boxImageUri: '', genre: "Семейные", age: "6+" },]
+      if (!collection.game_ids || collection.game_ids.length === 0) return;
+
+      const token = await AsyncStorage.getItem('jwt_token');
+      try {
+        const response = await axios.post(
+          `${BASE_URL}/games/by-ids`,
+          { ids: collection.game_ids },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } catch (error) {
+        console.error('Ошибка при загрузке игр:', error);
+      }
     };
+
+    // const fetchGames = async () => {
+    //   return  [{ id: 'g1', title: 'Каркассон', boxImageUri: '', genre: "Семейные", age: "6+" },
+    //     { id: 'g2', title: 'Каркассон', boxImageUri: '', genre: "Семейные", age: "6+" },
+    //     { id: 'g3', title: 'Каркассон', boxImageUri: '', genre: "Семейные", age: "6+" },]
+    // };
 
     fetchGames().then(setGameDetails);
   }, [collection.game_ids]);
@@ -135,16 +137,22 @@ const CollectionCard = ({ collection, onPinToggle, onEdit, onDelete }) => {
       : require('../assets/pic/placeholder_image.png'); 
 
     return (
-      <View style={{ width: BOX_ITEM_WIDTH, justifyContent: 'center', alignItems: 'center' }}>
-        <Image
-          source={imageSource}
-          style={{
-            width: isFocused ? FOCUSED_BOX_WIDTH : BASE_BOX_WIDTH,
-            height: isFocused ? FOCUSED_BOX_HEIGHT : BASE_BOX_HEIGHT,
-            resizeMode: 'contain',
-          }}
-        />
-      </View>
+      <TouchableOpacity
+        onPress={() => navigation.navigate('GameDetail', { gameId: item.id })}
+        activeOpacity={0.8}
+        style={styles.boxItem}
+      >
+        <View style={{ width: BOX_ITEM_WIDTH, justifyContent: 'center', alignItems: 'center' }}>
+          <Image
+            source={imageSource}
+            style={{
+              width: isFocused ? FOCUSED_BOX_WIDTH : BASE_BOX_WIDTH,
+              height: isFocused ? FOCUSED_BOX_HEIGHT : BASE_BOX_HEIGHT,
+              resizeMode: 'contain',
+            }}
+          />
+        </View>
+      </TouchableOpacity>
     );
   };
 
